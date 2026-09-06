@@ -21,6 +21,7 @@ if (has("--help") || has("-h")) {
   --out <dir>                          also write audit.md and audit.html
   --json                               print the readout as JSON
   --example                            print an example intake to edit
+  --help                               print this list
 `);
   process.exit(0);
 }

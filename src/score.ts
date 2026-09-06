@@ -26,10 +26,15 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Collapse runs of whitespace, including newlines, to one space. */
+function collapseWhitespace(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
 function normList(v: unknown): string[] | "unknown" {
-  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string").map(collapseWhitespace);
   if (v === "unknown") return "unknown";
-  if (typeof v === "string" && v.length > 0) return [v];
+  if (typeof v === "string" && v.length > 0) return [collapseWhitespace(v)];
   return "unknown";
 }
 
@@ -63,7 +68,7 @@ function normBool(v: unknown): boolean | "unknown" {
 }
 
 function str(v: unknown): string | undefined {
-  return typeof v === "string" ? v : undefined;
+  return typeof v === "string" ? collapseWhitespace(v) : undefined;
 }
 
 /** Normalise a hand-edited intake on a deep copy. score() never mutates its input. */
@@ -294,14 +299,13 @@ const FIX: Record<Dimension, string> = {
 
 const SEVERITY: Dimension[] = ["single-path", "custody", "mediated-execution", "intent-binding", "human-approval", "no-splitting", "provable-audit", "continuous-verification"];
 
-const STEPS: { closes: Dimension[]; effort: number; kind: StepKind; step: string }[] = [
+export const STEPS: { closes: Dimension[]; effort: number; kind: StepKind; step: string }[] = [
   { closes: ["custody", "mediated-execution", "single-path"], effort: 3, kind: "governance-layer", step: "A payment-governance layer sits between the agent and the rail. The credential moves behind it, the agent submits intents, and the layer is the only path that can pay. Purse enforcement mode is one such layer." },
-  { closes: ["intent-binding"], effort: 1, kind: "governance-layer", step: "Each approved spend is a single-use grant bound to an exact payee and amount, so an in-policy request cannot be redirected." },
-  { closes: ["no-splitting"], effort: 1, kind: "governance-layer", step: "Caps are enforced before the spend and budget is reserved the moment a grant is minted, so parallel small spends cannot outrun the day's limit." },
+  { closes: ["intent-binding", "no-splitting"], effort: 2, kind: "governance-layer", step: "The layer binds every grant to a payee and an amount, enforces caps before the spend, and reserves budget the moment a grant is minted, so an in-policy request cannot be misdirected and parallel small spends cannot outrun the day's limit." },
   { closes: ["human-approval"], effort: 1, kind: "governance-layer", step: "Spends above a threshold wait for a person's approval given out of band, on a channel the agent cannot reach." },
   { closes: ["provable-audit"], effort: 1, kind: "governance-layer", step: "Every decision and the settled amount sit in a hash-chained receipt store that anyone can verify with plain SHA-256." },
   { closes: ["continuous-verification"], effort: 2, kind: "practice", step: "The money path is re-checked whenever the agent gains a tool, MCP server, or dependency, with an alarm on drift. A watcher can do the checking, the practice stays with you." },
-  { closes: ["single-path"], effort: 1, kind: "hands-on", step: "The agent has exactly one payment path, through the layer, with no key, SDK, or tool in its runtime that reaches a rail on its own." },
+  { closes: ["single-path"], effort: 1, kind: "hands-on", step: "The agent has exactly one payment path, with no key, SDK, or tool in its runtime that reaches a rail on its own." },
 ];
 
 function openness(verdicts: Record<Dimension, Verdict>, dims: Dimension[], exposedIf: (d: Dimension) => boolean, partialIf?: (d: Dimension) => boolean): Openness {
@@ -360,17 +364,19 @@ export function score(rawIntake: Intake): Readout {
   const topBreaches = SEVERITY.filter((d) => verdicts[d] === "Exposed").slice(0, 3).map((d) => ({ dimension: d, blastRadius: blastRadius(d, intake), fix: FIX[d] }));
 
   const open = new Set(DIMENSIONS.filter((d) => verdicts[d] === "Exposed" || verdicts[d] === "Partial"));
-  const candidates = STEPS
-    .map((s) => ({ s, gain: s.closes.filter((d) => open.has(d)).length }))
-    .filter((x) => x.gain > 0)
-    .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain);
   const remaining = new Set(open);
+  const pool = STEPS.filter((s) => s.closes.some((d) => open.has(d)));
   const chosen: typeof STEPS = [];
-  for (const { s } of candidates) {
-    if (chosen.length >= 4) break;
-    if (!s.closes.some((d) => remaining.has(d))) continue;
-    chosen.push(s);
-    for (const d of s.closes) remaining.delete(d);
+  while (chosen.length < 4 && remaining.size > 0) {
+    const ranked = pool
+      .filter((s) => !chosen.includes(s))
+      .map((s) => ({ s, gain: s.closes.filter((d) => remaining.has(d)).length }))
+      .filter((x) => x.gain > 0)
+      .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain);
+    if (ranked.length === 0) break;
+    const best = ranked[0]!.s;
+    chosen.push(best);
+    for (const d of best.closes) remaining.delete(d);
   }
   const shortestPath = chosen.map((s) => ({ step: s.step, kind: s.kind }));
 

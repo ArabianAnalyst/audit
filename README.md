@@ -52,7 +52,7 @@ const readout = score(exampleIntake());
 console.log(render(readout, "markdown"));
 ```
 
-`questions` is the intake schema, so any form can render it. `score` is pure and deterministic. `render` gives you text, Markdown, or a self-contained HTML report.
+The intake schema is exported as `questions`, so any form can render it. `score` is pure and deterministic. `render` gives you text, Markdown, or a self-contained HTML report.
 
 ## The prompt
 

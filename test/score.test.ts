@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { score, blastRadius } from "../src/score.js";
+import { score, blastRadius, STEPS } from "../src/score.js";
 import { formatMoney } from "../src/money.js";
 import { questions } from "../src/questions.js";
+import { render } from "../src/render.js";
 import type { Intake } from "../src/types.js";
 
 const advisory: Intake = {
@@ -111,6 +112,17 @@ const sevenClosedEighthUnknown: Intake = {
   limits: { perAction: { amount: 50, currency: "USD" }, perDay: { amount: 500, currency: "USD" }, enforcedAt: "before-spend", reservedAtGrant: true },
   approval: { mode: "out-of-band", threshold: { amount: 20, currency: "USD" } },
   record: { exists: true, tamperEvident: true, settledAmountRecorded: true },
+};
+
+const custodyBreachTwoIntake: Intake = {
+  reach: { tools: [], mcpServers: [], keysInRuntime: [], paymentPaths: 1 },
+  custody: { where: "agent-runtime" },
+  execution: { who: "intent-to-executor" },
+  binding: { mode: "any-in-policy" },
+  limits: { perDay: { amount: 500, currency: "USD" }, enforcedAt: "none", reservedAtGrant: false },
+  approval: { mode: "none" },
+  record: { exists: true, tamperEvident: true, settledAmountRecorded: true },
+  drift: { changeFrequency: "rare", recheck: "on-change" },
 };
 
 const stringyPerDay: Intake = { limits: { perDay: { amount: "500" as unknown as number, currency: "USD" }, enforcedAt: "none", reservedAtGrant: false } };
@@ -354,6 +366,33 @@ test("B10: keysInRuntime unknown with mediated execution is Partial with the rea
   assert.equal(e.finding, "Execution is mediated, but whether the runtime holds a payment credential is not described.");
   assert.equal(e.question, "What can the agent's runtime reach? List every tool, MCP server, SDK, and key in the agent's process.");
   assert.ok(r.moneyPaths.some((p) => p.path === "unknown, runtime credentials not described" && p.mediated === "unknown"));
+});
+
+test("F1: every dimension named in topBreaches is closed by at least one chosen step, across every fixture", () => {
+  for (const intake of [...ALL_INTAKES, custodyBreachTwoIntake]) {
+    const r = score(intake);
+    const closedByChosen = new Set(r.shortestPath.flatMap((s) => STEPS.find((step) => step.step === s.step)?.closes ?? []));
+    for (const b of r.topBreaches) {
+      assert.ok(closedByChosen.has(b.dimension), `${b.dimension} is a top breach but no chosen step closes it`);
+    }
+  }
+});
+
+test("F1b: custody as breach two gets a step that moves the credential, not four steps that skip it", () => {
+  const r = score(custodyBreachTwoIntake);
+  assert.deepEqual(r.topBreaches.map((b) => b.dimension), ["single-path", "custody", "intent-binding"]);
+  const closedByChosen = new Set(r.shortestPath.flatMap((s) => STEPS.find((step) => step.step === s.step)?.closes ?? []));
+  assert.ok(closedByChosen.has("custody"));
+});
+
+test("F2: a keysInRuntime entry with an embedded newline renders as one money-path line, whitespace collapsed", () => {
+  const intake: Intake = { reach: { tools: [], mcpServers: [], keysInRuntime: ["STRIPE_KEY\nSECOND_LINE"], paymentPaths: 1 } };
+  const r = score(intake);
+  assert.ok(r.moneyPaths.some((p) => p.path === "agent to rail via STRIPE_KEY SECOND_LINE, unmediated"));
+  const text = render(r, "text");
+  const moneyPathLines = text.split("\n").filter((l) => l.includes("STRIPE_KEY"));
+  assert.equal(moneyPathLines.length, 1);
+  assert.ok(!text.split("\n").some((l) => l.trim().startsWith("SECOND_LINE")));
 });
 
 test("generated prose has no colon or em dash outside URLs", () => {
