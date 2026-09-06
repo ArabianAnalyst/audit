@@ -82,7 +82,7 @@ Each Unknown carries the exact intake question to ask, in the prompt's words.
 
 **Top breaches.** Exposed dimensions in the fixed severity order 1, 2, 3, 4, 6, 5, 7, 8, at most three, each with its blast-radius sentence and a one-line fix.
 
-**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more. Only steps that close an open dimension appear, one to four of them, and a setup with nothing open gets no steps and a last line that says so. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/work".
+**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more. Only steps that close an open dimension appear, as many as it takes to close every open dimension and at most six, and a setup with nothing open gets no steps and a last line that says so. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/work".
 
 ## Readout
 

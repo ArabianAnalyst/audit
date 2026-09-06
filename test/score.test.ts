@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { score, blastRadius, STEPS } from "../src/score.js";
+import { score, blastRadius, STEPS, coverSteps } from "../src/score.js";
 import { formatMoney } from "../src/money.js";
 import { questions } from "../src/questions.js";
 import { render } from "../src/render.js";
-import type { Intake } from "../src/types.js";
+import { DIMENSIONS } from "../src/types.js";
+import type { Intake, Dimension } from "../src/types.js";
 
 const advisory: Intake = {
   spend: { what: ["API credits"], frequency: "daily", typical: { amount: 12.5, currency: "USD" } },
@@ -183,7 +184,8 @@ test("advisory with caps: forgery and misdirection open, blast radius in their n
   assert.equal(r.topBreaches.length, 3);
   assert.deepEqual(r.topBreaches.map((b) => b.dimension), ["single-path", "custody", "mediated-execution"]);
   assert.match(r.topBreaches[0]!.blastRadius, /\$500\.00/);
-  assert.ok(r.shortestPath.length >= 2 && r.shortestPath.length <= 4);
+  assert.ok(r.shortestPath.length >= 2 && r.shortestPath.length <= 6);
+  assert.equal(r.shortestPath.length, 5);
   assert.equal(r.shortestPath[0]!.kind, "governance-layer");
   assert.match(r.lastLine, /https:\/\/olurabian\.com\/work/);
   assert.ok(r.exposure.every((e) => e.question === undefined));
@@ -383,6 +385,27 @@ test("F1b: custody as breach two gets a step that moves the credential, not four
   assert.deepEqual(r.topBreaches.map((b) => b.dimension), ["single-path", "custody", "intent-binding"]);
   const closedByChosen = new Set(r.shortestPath.flatMap((s) => STEPS.find((step) => step.step === s.step)?.closes ?? []));
   assert.ok(closedByChosen.has("custody"));
+});
+
+test("P1: coverSteps closes every one of the 255 non-empty open-dimension subsets, no duplicate steps, first pick is highest-ratio", () => {
+  const n = DIMENSIONS.length;
+  for (let mask = 1; mask < 1 << n; mask++) {
+    const open: Dimension[] = DIMENSIONS.filter((_, i) => (mask & (1 << i)) !== 0);
+    const chosen = coverSteps(open);
+    const label = open.join(",");
+
+    assert.ok(chosen.length > 0, `no steps chosen for open set [${label}]`);
+
+    const closedByChosen = new Set(chosen.flatMap((s) => s.closes));
+    for (const d of open) assert.ok(closedByChosen.has(d), `${d} left uncovered for open set [${label}]`);
+
+    assert.equal(new Set(chosen).size, chosen.length, `a step was chosen twice for open set [${label}]`);
+
+    const candidates = STEPS.filter((s) => s.closes.some((d) => open.includes(d)));
+    const ratioOf = (s: (typeof STEPS)[number]) => s.closes.filter((d) => open.includes(d)).length / s.effort;
+    const bestRatio = Math.max(...candidates.map(ratioOf));
+    assert.equal(ratioOf(chosen[0]!), bestRatio, `first chosen step is not highest ratio for open set [${label}]`);
+  }
 });
 
 test("F2: a keysInRuntime entry with an embedded newline renders as one money-path line, whitespace collapsed", () => {

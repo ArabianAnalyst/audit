@@ -299,7 +299,9 @@ const FIX: Record<Dimension, string> = {
 
 const SEVERITY: Dimension[] = ["single-path", "custody", "mediated-execution", "intent-binding", "human-approval", "no-splitting", "provable-audit", "continuous-verification"];
 
-export const STEPS: { closes: Dimension[]; effort: number; kind: StepKind; step: string }[] = [
+export type Step = { closes: Dimension[]; effort: number; kind: StepKind; step: string };
+
+export const STEPS: Step[] = [
   { closes: ["custody", "mediated-execution", "single-path"], effort: 3, kind: "governance-layer", step: "A payment-governance layer sits between the agent and the rail. The credential moves behind it, the agent submits intents, and the layer is the only path that can pay. Purse enforcement mode is one such layer." },
   { closes: ["intent-binding", "no-splitting"], effort: 2, kind: "governance-layer", step: "The layer binds every grant to a payee and an amount, enforces caps before the spend, and reserves budget the moment a grant is minted, so an in-policy request cannot be misdirected and parallel small spends cannot outrun the day's limit." },
   { closes: ["human-approval"], effort: 1, kind: "governance-layer", step: "Spends above a threshold wait for a person's approval given out of band, on a channel the agent cannot reach." },
@@ -307,6 +309,33 @@ export const STEPS: { closes: Dimension[]; effort: number; kind: StepKind; step:
   { closes: ["continuous-verification"], effort: 2, kind: "practice", step: "The money path is re-checked whenever the agent gains a tool, MCP server, or dependency, with an alarm on drift. A watcher can do the checking, the practice stays with you." },
   { closes: ["single-path"], effort: 1, kind: "hands-on", step: "The agent has exactly one payment path, with no key, SDK, or tool in its runtime that reaches a rail on its own." },
 ];
+
+/**
+ * Greedy set cover over STEPS for the given open dimensions.
+ * Each iteration recomputes, for every candidate not yet chosen, the ratio of
+ * still-open dimensions it would close to its effort; picks the highest ratio,
+ * ties toward the candidate that closes more still-open dimensions, then table
+ * order for determinism. A candidate is kept only if it closes at least one
+ * dimension still open. Stops when nothing is open. Since STEPS has six
+ * entries, the result has at most six steps.
+ */
+export function coverSteps(open: Dimension[]): Step[] {
+  const remaining = new Set(open);
+  const pool = STEPS.filter((s) => s.closes.some((d) => remaining.has(d)));
+  const chosen: Step[] = [];
+  while (remaining.size > 0) {
+    const ranked = pool
+      .filter((s) => !chosen.includes(s))
+      .map((s) => ({ s, gain: s.closes.filter((d) => remaining.has(d)).length }))
+      .filter((x) => x.gain > 0)
+      .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain);
+    if (ranked.length === 0) break;
+    const best = ranked[0]!.s;
+    chosen.push(best);
+    for (const d of best.closes) remaining.delete(d);
+  }
+  return chosen;
+}
 
 function openness(verdicts: Record<Dimension, Verdict>, dims: Dimension[], exposedIf: (d: Dimension) => boolean, partialIf?: (d: Dimension) => boolean): Openness {
   const vs = dims.map((d) => verdicts[d]);
@@ -363,21 +392,8 @@ export function score(rawIntake: Intake): Readout {
 
   const topBreaches = SEVERITY.filter((d) => verdicts[d] === "Exposed").slice(0, 3).map((d) => ({ dimension: d, blastRadius: blastRadius(d, intake), fix: FIX[d] }));
 
-  const open = new Set(DIMENSIONS.filter((d) => verdicts[d] === "Exposed" || verdicts[d] === "Partial"));
-  const remaining = new Set(open);
-  const pool = STEPS.filter((s) => s.closes.some((d) => open.has(d)));
-  const chosen: typeof STEPS = [];
-  while (chosen.length < 4 && remaining.size > 0) {
-    const ranked = pool
-      .filter((s) => !chosen.includes(s))
-      .map((s) => ({ s, gain: s.closes.filter((d) => remaining.has(d)).length }))
-      .filter((x) => x.gain > 0)
-      .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain);
-    if (ranked.length === 0) break;
-    const best = ranked[0]!.s;
-    chosen.push(best);
-    for (const d of best.closes) remaining.delete(d);
-  }
+  const open = DIMENSIONS.filter((d) => verdicts[d] === "Exposed" || verdicts[d] === "Partial");
+  const chosen = coverSteps(open);
   const shortestPath = chosen.map((s) => ({ step: s.step, kind: s.kind }));
 
   // Framing why-sentence, built from the dimensions actually open.

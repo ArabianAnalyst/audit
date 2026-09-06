@@ -39,7 +39,7 @@ Two framings come out of the score. Forgery is open when custody, single path, o
 
 ## The readout
 
-Six sections, in this order and nothing else. Posture in one line. The money-path map, one path per line, mediated or not. Exposure, the eight verdicts with a one-line finding and the question to ask for each Unknown. Top breaches, at most three, each with the loss in money and the fix in one line. Which is open, forgery or misdirection or both. The shortest path, one to four steps ordered by blast radius closed per unit of effort, each named plainly as a governance layer, hands-on work, or a practice you keep, and none when nothing is open.
+Six sections, in this order and nothing else. Posture in one line. The money-path map, one path per line, mediated or not. Exposure, the eight verdicts with a one-line finding and the question to ask for each Unknown. Top breaches, at most three, each with the loss in money and the fix in one line. Which is open, forgery or misdirection or both. The shortest path, as many steps as it takes to close every open dimension, at most six, each named plainly as a governance layer, hands-on work, or a practice you keep, and none when nothing is open.
 
 The last line is a plain next step. This is a diagnostic, not a sales tool.
 
