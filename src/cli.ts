@@ -35,6 +35,10 @@ function parseMoney(s: string): Money | undefined {
   return { amount: Number(m[2]), currency };
 }
 
+const BLANK = Symbol("blank");
+const INVALID = Symbol("invalid");
+type AskResult = unknown | typeof BLANK | typeof INVALID;
+
 async function ask(): Promise<Intake> {
   const rl = createInterface({ input: stdin, output: stdout });
   const intake: Record<string, Record<string, unknown>> = {};
@@ -46,10 +50,17 @@ async function ask(): Promise<Intake> {
       let answered = false;
       for (const f of q.fields) {
         const v = await askField(rl, f);
-        if (v !== undefined) { answers[f.key] = v; answered = true; }
-        else if (f.kind === "choice") answers[f.key] = "unknown";
-        else if (f.kind === "boolean" || f.kind === "number") answers[f.key] = "unknown";
-        else if (f.kind === "list") answers[f.key] = [];
+        if (v === INVALID) {
+          stdout.write("  Not a valid answer, marked unknown.\n");
+          if (f.kind === "choice" || f.kind === "boolean" || f.kind === "number") answers[f.key] = "unknown";
+          // money: left absent, as today. list and text never produce INVALID.
+        } else if (v === BLANK) {
+          if (f.kind === "choice" || f.kind === "boolean" || f.kind === "number" || f.kind === "list") answers[f.key] = "unknown";
+          // money and text: left absent.
+        } else {
+          answers[f.key] = v;
+          answered = true;
+        }
       }
       const notes = (await rl.question("  Notes, optional. ")).trim();
       if (notes) { answers.notes = notes; answered = true; }
@@ -59,29 +70,31 @@ async function ask(): Promise<Intake> {
   return intake as unknown as Intake;
 }
 
-async function askField(rl: ReturnType<typeof createInterface>, f: Field): Promise<unknown> {
+async function askField(rl: ReturnType<typeof createInterface>, f: Field): Promise<AskResult> {
   if (f.kind === "choice") {
     const cs = f.choices ?? [];
     stdout.write(`  ${f.label}\n${cs.map((c, i) => `    ${i + 1}. ${c.label}`).join("\n")}\n`);
     const a = (await rl.question("  Number. ")).trim();
+    if (!a) return BLANK;
     const n = Number(a);
-    if (!a || !Number.isInteger(n) || n < 1 || n > cs.length) return undefined;
+    if (!Number.isInteger(n) || n < 1 || n > cs.length) return INVALID;
     const v = cs[n - 1]!.value;
-    return v === "unknown" ? undefined : v;
+    return v === "unknown" ? BLANK : v;
   }
   const a = (await rl.question(`  ${f.label}${f.optional ? ", optional" : ""}. `)).trim();
-  if (!a) return undefined;
-  if (f.kind === "money") return parseMoney(a);
+  if (!a) return BLANK;
+  if (f.kind === "money") { const m = parseMoney(a); return m ?? INVALID; }
   if (f.kind === "list") return a.split(",").map((s) => s.trim()).filter(Boolean);
-  if (f.kind === "boolean") return /^(y|yes|true)$/i.test(a) ? true : /^(n|no|false)$/i.test(a) ? false : undefined;
-  if (f.kind === "number") { const n = Number(a); return Number.isFinite(n) ? n : undefined; }
+  if (f.kind === "boolean") { if (/^(y|yes|true)$/i.test(a)) return true; if (/^(n|no|false)$/i.test(a)) return false; return INVALID; }
+  if (f.kind === "number") { const n = Number(a); return Number.isFinite(n) ? n : INVALID; }
   return a;
 }
 
 async function main(): Promise<void> {
   let intake: Intake;
-  const file = flag("--intake");
-  if (file) {
+  if (has("--intake")) {
+    const file = flag("--intake");
+    if (!file) { process.stderr.write("audit: --intake needs a file path\n"); process.exit(1); }
     try {
       const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("expected a JSON object with the intake fields");
@@ -93,13 +106,15 @@ async function main(): Promise<void> {
     intake = await ask();
   }
   const readout = score(intake);
-  if (has("--json")) { stdout.write(JSON.stringify(readout, null, 2) + "\n"); return; }
-  stdout.write("\n" + render(readout, "text"));
   const out = flag("--out");
   if (out) {
     mkdirSync(out, { recursive: true });
     writeFileSync(join(out, "audit.md"), render(readout, "markdown"));
     writeFileSync(join(out, "audit.html"), render(readout, "html"));
+  }
+  if (has("--json")) { stdout.write(JSON.stringify(readout, null, 2) + "\n"); return; }
+  stdout.write("\n" + render(readout, "text"));
+  if (out) {
     stdout.write(`\nWritten. ${join(out, "audit.md")} and ${join(out, "audit.html")}\n`);
   }
 }

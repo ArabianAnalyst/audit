@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { score, render, exampleIntake } from "../src/index.js";
+import type { Format } from "../src/render.js";
 
 const SECTIONS = ["Posture", "Money-path map", "Exposure", "Top breaches", "Which is open", "Shortest path"];
 
@@ -55,4 +56,30 @@ test("a crafted intake value cannot break out of the html", () => {
   const withTrailingPeriod = { ...r, lastLine: `${r.lastLine.replace(/https:\/\/olurabian\.com\/work\.?$/, "").trimEnd()} https://olurabian.com/work.` };
   const html2 = render(withTrailingPeriod, "html");
   assert.ok(html2.includes('href="https://olurabian.com/work">https://olurabian.com/work</a>.'), "trailing period sits outside the anchor");
+});
+
+test("D1: a money-path line does not double the mediated flag", () => {
+  const r = score(exampleIntake());
+  const text = render(r, "text");
+  const unmediatedLine = text.split("\n").find((l) => l.includes("unmediated"))!;
+  assert.equal((unmediatedLine.match(/unmediated/g) ?? []).length, 1);
+});
+
+test("D2: a URL followed by a comma keeps the comma outside the anchor", () => {
+  const r = score(exampleIntake());
+  const withComma = { ...r, lastLine: "See https://olurabian.com/work, for more." };
+  const html = render(withComma, "html");
+  assert.ok(html.includes('href="https://olurabian.com/work">https://olurabian.com/work</a>,'), "comma sits outside the anchor");
+});
+
+test("D3: an unknown format throws", () => {
+  const r = score(exampleIntake());
+  assert.throws(() => render(r, "pdf" as Format), /unknown format/);
+});
+
+test("D4: a note with a newline renders on one line in markdown", () => {
+  const r = score({ ...exampleIntake(), custody: { where: "agent-runtime", notes: "line one\nline two" } });
+  const md = render(r, "markdown");
+  assert.ok(md.includes("line one line two"));
+  assert.ok(!md.includes("line one\nline two"));
 });

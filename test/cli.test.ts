@@ -37,3 +37,19 @@ test("an intake file that is not a JSON object is the same clear error", () => {
     assert.throws(() => execFileSync(process.execPath, [CLI, "--intake", file], { encoding: "utf8", stdio: "pipe" }), /cannot read intake/, body);
   }
 });
+
+test("E3: --intake with no path is a clear error, not a hang or a TTY prompt", () => {
+  assert.throws(() => execFileSync(process.execPath, [CLI, "--intake"], { encoding: "utf8", stdio: "pipe" }), /--intake needs a file path/);
+});
+
+test("E4: --json with --out writes both files and prints only the JSON", () => {
+  const dir = mkdtempSync(join(tmpdir(), "audit-"));
+  const file = join(dir, "intake.json");
+  writeFileSync(file, run(["--example"]));
+  const outDir = join(dir, "out");
+  const stdoutText = run(["--intake", file, "--json", "--out", outDir]);
+  assert.ok(existsSync(join(outDir, "audit.md")) && existsSync(join(outDir, "audit.html")));
+  const parsed = JSON.parse(stdoutText) as { posture: string };
+  assert.equal(typeof parsed.posture, "string");
+  assert.ok(!stdoutText.includes("Written."));
+});

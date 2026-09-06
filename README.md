@@ -10,7 +10,15 @@ The Agent Payment Security Audit as a runnable. Nine questions about your agent'
 npx @olurabian/audit
 ```
 
-It asks the questions in your terminal and prints the readout. To keep a copy, add `--out ./audit` and you get `audit.md` and `audit.html`. To answer once and rerun, start from `npx @olurabian/audit --example > intake.json`, edit it, then `npx @olurabian/audit --intake intake.json`.
+It asks the questions in your terminal and prints the readout.
+
+- `--intake <file>` scores a saved intake instead of asking
+- `--out <dir>` also writes `audit.md` and `audit.html`, and still runs alongside `--json`
+- `--json` prints the readout as JSON
+- `--example` prints an example intake to edit
+- `--help` prints this list
+
+To keep a copy, add `--out ./audit` and you get `audit.md` and `audit.html`. To answer once and rerun, start from `npx @olurabian/audit --example > intake.json`, edit it, then `npx @olurabian/audit --intake intake.json`.
 
 A browser version with the same engine lives at https://deadlatch.dev/audit. Nothing you type there leaves the page either.
 
@@ -31,14 +39,14 @@ Two framings come out of the score. Forgery is open when custody, single path, o
 
 ## The readout
 
-Six sections, in this order and nothing else. Posture in one line. The money-path map, one path per line, mediated or not. Exposure, the eight verdicts with a one-line finding and the question to ask for each Unknown. Top breaches, at most three, each with the loss in money and the fix in one line. Which is open, forgery or misdirection or both. The shortest path, two to four steps ordered by blast radius closed per unit of effort, each named plainly as a governance layer, hands-on work, or a practice you keep.
+Six sections, in this order and nothing else. Posture in one line. The money-path map, one path per line, mediated or not. Exposure, the eight verdicts with a one-line finding and the question to ask for each Unknown. Top breaches, at most three, each with the loss in money and the fix in one line. Which is open, forgery or misdirection or both. The shortest path, one to four steps ordered by blast radius closed per unit of effort, each named plainly as a governance layer, hands-on work, or a practice you keep, and none when nothing is open.
 
 The last line is a plain next step. This is a diagnostic, not a sales tool.
 
 ## Use the engine
 
 ```js
-import { questions, score, render, exampleIntake } from "@olurabian/audit";
+import { score, render, exampleIntake } from "@olurabian/audit";
 
 const readout = score(exampleIntake());
 console.log(render(readout, "markdown"));

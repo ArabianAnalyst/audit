@@ -1,4 +1,4 @@
-export type Money = { amount: number; currency: string };
+export type Money = { amount: number; currency?: string };
 export type Verdict = "Closed" | "Partial" | "Exposed" | "Unknown";
 export type Dimension =
   | "single-path" | "custody" | "mediated-execution" | "intent-binding"
@@ -23,8 +23,8 @@ export const DIMENSION_LABEL: Record<Dimension, string> = {
 export type Unknownable<T> = T | "unknown";
 
 export interface Intake {
-  spend?: { what: string[]; frequency: "rare" | "daily" | "continuous" | "unknown"; typical?: Money; notes?: string };
-  reach?: { tools: string[]; mcpServers: string[]; keysInRuntime: string[]; paymentPaths: number | "unknown"; notes?: string };
+  spend?: { what: string[] | "unknown"; frequency: "rare" | "daily" | "continuous" | "unknown"; typical?: Money; notes?: string };
+  reach?: { tools: string[] | "unknown"; mcpServers: string[] | "unknown"; keysInRuntime: string[] | "unknown"; paymentPaths: number | "unknown"; notes?: string };
   custody?: { where: "agent-runtime" | "separate-service" | "unknown"; notes?: string };
   execution?: { who: "agent-calls-rail" | "intent-to-executor" | "unknown"; notes?: string };
   binding?: { mode: "bound-payee-and-amount" | "any-in-policy" | "unknown"; notes?: string };

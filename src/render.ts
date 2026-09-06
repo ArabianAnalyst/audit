@@ -8,7 +8,7 @@ const TITLES = ["Posture", "Money-path map", "Exposure", "Top breaches", "Which 
 function lines(r: Readout): { title: string; body: string[] }[] {
   return [
     { title: TITLES[0], body: [r.posture] },
-    { title: TITLES[1], body: r.moneyPaths.map((p) => `${p.path} (${p.mediated === "unknown" ? "unknown" : p.mediated ? "mediated" : "unmediated"})`) },
+    { title: TITLES[1], body: r.moneyPaths.map((p) => p.path) },
     { title: TITLES[2], body: r.exposure.map((e) => `${DIMENSION_LABEL[e.dimension]}. ${e.verdict}. ${e.finding}${e.question ? ` Ask. ${e.question}` : ""}`) },
     { title: TITLES[3], body: r.topBreaches.length ? r.topBreaches.map((b, i) => `${i + 1}. ${DIMENSION_LABEL[b.dimension]}. ${b.blastRadius} Fix. ${b.fix}`) : ["None from what was described."] },
     { title: TITLES[4], body: [`Forgery ${r.open.forgery}, misdirection ${r.open.misdirection}. ${r.open.why}`] },
@@ -20,11 +20,16 @@ function kindLabel(k: Readout["shortestPath"][number]["kind"]): string {
   return { "governance-layer": "a payment-governance layer", "hosted-control-plane": "a hosted control plane", "hands-on": "hands-on implementation", practice: "a practice you keep" }[k];
 }
 
+function collapseWs(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
 function notesBlock(r: Readout): string[] {
-  return r.notes.map((n) => `${n.dimension === "spend" ? "Spend" : DIMENSION_LABEL[n.dimension]}. ${n.text}`);
+  return r.notes.map((n) => `${n.dimension === "spend" ? "Spend" : DIMENSION_LABEL[n.dimension]}. ${collapseWs(n.text)}`);
 }
 
 export function render(r: Readout, format: Format): string {
+  if (format !== "text" && format !== "markdown" && format !== "html") throw new Error("unknown format");
   const secs = lines(r);
   if (format === "text") {
     const out = secs.map((s, i) => `${i + 1}. ${s.title}\n${s.body.map((b) => `   ${b}`).join("\n")}`);
@@ -39,8 +44,9 @@ export function render(r: Readout, format: Format): string {
   }
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   const link = (s: string) => esc(s).replace(/(https?:\/\/[^\s"'<>&]+)/g, (m) => {
-    const trail = m.endsWith(".") ? "." : "";
-    const url = trail ? m.slice(0, -1) : m;
+    const mm = m.match(/^(.*?)([.,;)\]]+)$/);
+    const url = mm ? mm[1]! : m;
+    const trail = mm ? mm[2]! : "";
     return `<a href="${url}">${url}</a>${trail}`;
   });
   const verdictClass = (b: string) => (/\. Exposed\./.test(b) ? "exposed" : /\. Partial\./.test(b) ? "partial" : /\. Unknown\./.test(b) ? "unknown" : "closed");

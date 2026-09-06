@@ -83,4 +83,4 @@ Paste your filled intake below.
 
 ## What the dimensions map to
 
-Each dimension scores against the deployment contract in the main [README](../README.md#threat-model). Enforcement mode closes custody, mediated execution, intent-binding, no-splitting, human approval, and provable audit. Continuous verification is a property you maintain, not a state you reach, so it stays on you and your deployment.
+Each dimension scores against the deployment contract in the main [README](https://github.com/ArabianAnalyst/purse#threat-model). Enforcement mode closes custody, mediated execution, intent-binding, no-splitting, human approval, and provable audit. Continuous verification is a property you maintain, not a state you reach, so it stays on you and your deployment.
