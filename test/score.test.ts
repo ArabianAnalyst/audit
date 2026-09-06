@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { score } from "../src/score.js";
+import { score, blastRadius } from "../src/score.js";
 import { formatMoney } from "../src/money.js";
 import type { Intake } from "../src/types.js";
 
@@ -63,8 +63,16 @@ test("enforcement-grade except continuous verification", () => {
   assert.deepEqual([r.open.forgery, r.open.misdirection], ["closed", "closed"]);
   assert.equal(r.topBreaches.length, 0);
   assert.ok(r.moneyPaths.some((p) => p.mediated === true));
-  assert.equal(r.shortestPath.length, 2);
+  assert.equal(r.shortestPath.length, 1);
   assert.equal(r.shortestPath[0]!.kind, "practice");
+});
+
+test("an enforcement-grade setup gets no steps and an honest last line", () => {
+  const r = score({ ...enforcement, drift: { changeFrequency: "daily", recheck: "on-change" } });
+  assert.equal(r.posture, "enforcement-grade");
+  assert.equal(r.shortestPath.length, 0);
+  assert.equal(r.topBreaches.length, 0);
+  assert.match(r.lastLine, /Nothing to close/);
 });
 
 test("everything unknown: eight Unknowns, each with its question, no breaches", () => {
@@ -74,12 +82,39 @@ test("everything unknown: eight Unknowns, each with its question, no breaches", 
   assert.deepEqual([r.open.forgery, r.open.misdirection], ["unknown", "unknown"]);
   assert.equal(r.topBreaches.length, 0);
   assert.equal(r.moneyPaths[0]?.mediated, "unknown");
+  const q = Object.fromEntries(r.exposure.map((e) => [e.dimension, e.question]));
+  assert.equal(q["single-path"], "What can the agent's runtime reach? List every tool, MCP server, SDK, and key in the agent's process.");
+  assert.equal(q["no-splitting"], "What limits exist and where are they enforced? Per-action, daily, per-vendor. Checked before the spend or only at settlement.");
+});
+
+test("advisory with caps wins over mostly unknown", () => {
+  const r = score({ execution: { who: "agent-calls-rail" }, limits: { perDay: { amount: 500, currency: "USD" }, enforcedAt: "at-settlement", reservedAtGrant: false } });
+  assert.match(r.posture, /^advisory with caps/);
 });
 
 test("no cap at all reads as unbounded; a partial approval reads as Partial", () => {
   const r = score({ ...advisory, limits: { enforcedAt: "none", reservedAtGrant: false }, approval: { mode: "out-of-band" } });
   assert.match(r.topBreaches[0]!.blastRadius, /unbounded/);
   assert.equal(r.exposure.find((e) => e.dimension === "human-approval")!.verdict, "Partial");
+});
+
+test("no-splitting reads partial when budget is reserved but no cap exists", () => {
+  const r = score({ limits: { reservedAtGrant: true, enforcedAt: "before-spend" } });
+  const e = r.exposure.find((e) => e.dimension === "no-splitting")!;
+  assert.equal(e.verdict, "Partial");
+  assert.equal(e.finding, "Budget is reserved at approval, but no cap is described.");
+});
+
+test("blast sentences with no caps say unbounded", () => {
+  const intake: Intake = { ...advisory, limits: { enforcedAt: "before-spend", reservedAtGrant: "unknown" }, approval: { mode: "in-band" } };
+  assert.match(blastRadius("intent-binding", intake), /unbounded|\$[0-9]/);
+  assert.match(blastRadius("no-splitting", intake), /unbounded|\$[0-9]/);
+  assert.match(blastRadius("human-approval", intake), /unbounded|\$[0-9]/);
+});
+
+test("approval none with bound grants reads misdirection partial", () => {
+  const r = score({ ...enforcement, approval: { mode: "none" } });
+  assert.equal(r.open.misdirection, "partial");
 });
 
 test("score is pure and notes are echoed, never scored", () => {

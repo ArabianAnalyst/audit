@@ -3,11 +3,11 @@ import type { Dimension, Intake, Readout, Verdict, Openness, StepKind } from "./
 import { formatMoney, capOf } from "./money.js";
 
 const QUESTION: Record<Dimension, string> = {
-  "single-path": "Who executes the payment, and can the agent's runtime reach a payment credential or a second payment tool?",
+  "single-path": "What can the agent's runtime reach? List every tool, MCP server, SDK, and key in the agent's process.",
   "custody": "Where does the payment credential live? In the agent's process or prompt or memory, or behind a separate service or signer.",
   "mediated-execution": "Who executes the payment? The agent calls the rail itself, or it submits an intent to something that executes.",
   "intent-binding": "When a spend is approved, is it bound to a specific payee and amount, or can the agent supply any in-policy value?",
-  "no-splitting": "What limits exist and where are they enforced? Is budget reserved when a spend is approved or only when it settles?",
+  "no-splitting": "What limits exist and where are they enforced? Per-action, daily, per-vendor. Checked before the spend or only at settlement.",
   "human-approval": "Is there human approval for large spends? None, in-band where the agent decides, or out of band where a person approves the exact spend.",
   "provable-audit": "Is there a record of every decision and the amount actually settled, and can it be tampered with?",
   "continuous-verification": "How often does the agent's tool or dependency set change, and is the money-path re-checked when it does?",
@@ -53,6 +53,7 @@ function rule(d: Dimension, i: Intake): Ruled {
       const l = i.limits;
       if (!l) return { verdict: "Unknown", finding: "Limits are not described." };
       if (l.reservedAtGrant === true && cap) return { verdict: "Closed", finding: "Budget is reserved when a spend is approved, so small spends cannot slip under the cap." };
+      if (l.reservedAtGrant === true && !cap) return { verdict: "Partial", finding: "Budget is reserved at approval, but no cap is described." };
       if (l.enforcedAt === "none") return { verdict: "Exposed", finding: "There is no cap to split under, and nothing stops a burst." };
       if (l.enforcedAt === "at-settlement" || l.reservedAtGrant === false) return { verdict: "Exposed", finding: "Caps bite only at settlement, so many small spends can clear before any of them count." };
       if (l.enforcedAt === "before-spend") return { verdict: "Partial", finding: "Caps are checked before the spend, but reservation at approval is not described." };
@@ -85,24 +86,29 @@ function rule(d: Dimension, i: Intake): Ruled {
   }
 }
 
-function blast(d: Dimension, i: Intake): string {
+export function blastRadius(d: Dimension, i: Intake): string {
   const cap = capOf(i.limits);
   const capText = cap ? `up to ${formatMoney(cap)}` : "unbounded, up to the balance behind the credential";
-  const perAction = i.limits?.perAction ? formatMoney(i.limits.perAction) : "any amount";
-  const perDay = i.limits?.perDay ? formatMoney(i.limits.perDay) : "any amount";
+  const perActionText = i.limits?.perAction ? `${formatMoney(i.limits.perAction)} per spend` : "unbounded per spend";
+  const perDayText = i.limits?.perDay ? `${formatMoney(i.limits.perDay)} per day` : "unbounded per day";
   switch (d) {
     case "single-path":
     case "custody":
     case "mediated-execution":
       return `One poisoned tool result pays any address, ${capText}, with nothing between the agent and the rail.`;
     case "intent-binding":
-      return `A compromised agent hands you a perfectly in-policy request that is not what you meant, ${perAction} per spend and ${perDay} per day.`;
+      return `A compromised agent hands you a perfectly in-policy request that is not what you meant, ${perActionText} and ${perDayText}.`;
     case "no-splitting":
-      return `Many small spends slip under ${perDay} before any of them settle, so the real cap is the per-spend limit times the settlement lag.`;
+      return i.limits?.perDay
+        ? `Many small spends slip under ${formatMoney(i.limits.perDay)} before any of them settle, so the real cap is the per-spend limit times the settlement lag.`
+        : "Many small spends slip through with no daily cap at all, unbounded, up to the balance behind the credential.";
     case "human-approval":
-      return i.approval?.mode === "in-band"
-        ? `The agent approves its own request, so the threshold of ${i.approval.threshold ? formatMoney(i.approval.threshold) : "any size"} is advice.`
-        : `Spends of any size execute without a person, ${cap ? formatMoney(cap) + " per day at most" : "unbounded"}.`;
+      if (i.approval?.mode === "in-band") {
+        return i.approval.threshold
+          ? `The agent approves its own request, so the threshold of ${formatMoney(i.approval.threshold)} is advice.`
+          : "The agent approves its own request and no threshold applies, so the amount is unbounded, up to the balance behind the credential.";
+      }
+      return `Spends of any size execute without a person, ${cap ? formatMoney(cap) + " per day at most" : "unbounded"}.`;
     case "provable-audit":
       return "After an incident you cannot prove what moved. The log can be edited and the settled amount is not in it.";
     case "continuous-verification":
@@ -132,10 +138,10 @@ const STEPS: { closes: Dimension[]; effort: number; kind: StepKind; step: string
   { closes: ["single-path"], effort: 1, kind: "hands-on", step: "Remove every second payment path from the agent's runtime, keys, SDKs, and tools included." },
 ];
 
-function openness(verdicts: Record<Dimension, Verdict>, dims: Dimension[], exposedIf: (d: Dimension) => boolean): Openness {
+function openness(verdicts: Record<Dimension, Verdict>, dims: Dimension[], exposedIf: (d: Dimension) => boolean, partialIf?: (d: Dimension) => boolean): Openness {
   const vs = dims.map((d) => verdicts[d]);
   if (dims.some((d) => exposedIf(d))) return "open";
-  if (vs.includes("Partial")) return "partial";
+  if (vs.includes("Partial") || dims.some((d) => partialIf?.(d))) return "partial";
   if (vs.every((v) => v === "Closed")) return "closed";
   return "unknown";
 }
@@ -153,16 +159,18 @@ export function score(intake: Intake): Readout {
 
   const forgery = openness(verdicts, ["single-path", "custody", "mediated-execution"], (d) => verdicts[d] === "Exposed");
   const misdirection = openness(verdicts, ["intent-binding", "human-approval"], (d) =>
-    (d === "intent-binding" && verdicts[d] === "Exposed") || (d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "in-band"));
+    (d === "intent-binding" && verdicts[d] === "Exposed") || (d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "in-band"),
+    (d) => d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "none");
+  const approvalNoneOpen = intake.approval?.mode === "none" && verdicts["human-approval"] === "Exposed";
 
   const unknowns = DIMENSIONS.filter((d) => verdicts[d] === "Unknown").length;
   const closed = (ds: Dimension[]) => ds.every((d) => verdicts[d] === "Closed");
   let posture: string;
   if (closed([...DIMENSIONS])) posture = "enforcement-grade";
   else if (closed(DIMENSIONS.slice(0, 4))) posture = `enforcement-grade except ${DIMENSIONS.slice(4).filter((d) => verdicts[d] !== "Closed").map((d) => DIMENSION_LABEL[d].toLowerCase()).join(", ")}`;
-  else if (unknowns >= 4) posture = "mostly unknown";
   else if (intake.execution?.who === "agent-calls-rail" && capOf(intake.limits)) posture = `advisory with caps, forgery ${forgery} and misdirection ${misdirection}`;
   else if (DIMENSIONS.every((d) => verdicts[d] === "Exposed")) posture = "no controls";
+  else if (unknowns >= 4) posture = "mostly unknown";
   else posture = `partial controls, forgery ${forgery} and misdirection ${misdirection}`;
 
   const moneyPaths: Readout["moneyPaths"] = [];
@@ -172,7 +180,7 @@ export function score(intake: Intake): Readout {
   else if (who === "agent-calls-rail") moneyPaths.push({ path: "agent to rail, unmediated", mediated: false });
   else moneyPaths.push({ path: "unknown, execution not described", mediated: "unknown" });
 
-  const topBreaches = SEVERITY.filter((d) => verdicts[d] === "Exposed").slice(0, 3).map((d) => ({ dimension: d, blastRadius: blast(d, intake), fix: FIX[d] }));
+  const topBreaches = SEVERITY.filter((d) => verdicts[d] === "Exposed").slice(0, 3).map((d) => ({ dimension: d, blastRadius: blastRadius(d, intake), fix: FIX[d] }));
 
   const open = new Set(DIMENSIONS.filter((d) => verdicts[d] === "Exposed" || verdicts[d] === "Partial"));
   const shortestPath = STEPS
@@ -181,16 +189,12 @@ export function score(intake: Intake): Readout {
     .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain)
     .slice(0, 4)
     .map((x) => ({ step: x.s.step, kind: x.s.kind }));
-  while (shortestPath.length < 2 && shortestPath.length < STEPS.length) {
-    const next = STEPS.find((s) => !shortestPath.some((p) => p.step === s.step));
-    if (!next) break;
-    shortestPath.push({ step: next.step, kind: next.kind });
-  }
 
   const why = forgery === "open" && misdirection === "open"
     ? "Custody is open, so the agent can forge a payment, and binding is open, so it can misdirect one it is allowed to request."
     : forgery === "open" ? "Custody or execution is open, so a compromised agent can forge a payment it was never handed the means to make."
     : misdirection === "open" ? "Custody holds, but the agent chooses the who and the how-much within policy, so it can misdirect a spend it is allowed to request."
+    : misdirection === "partial" && approvalNoneOpen ? "Binding holds, but large spends execute without a person, so a bound request can still be one you would have stopped."
     : forgery === "unknown" || misdirection === "unknown" ? "Not enough of the setup is described to say which is open."
     : forgery === "partial" || misdirection === "partial" ? "Neither is fully open, but one side rests on something not yet closed."
     : "Custody stops forgery and binding stops misdirection.";
