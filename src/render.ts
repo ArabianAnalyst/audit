@@ -37,8 +37,12 @@ export function render(r: Readout, format: Format): string {
     if (r.notes.length) out.push("## Notes you gave, echoed and never scored", "", ...notesBlock(r).map((b) => `- ${b}`), "");
     return out.join("\n");
   }
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const link = (s: string) => esc(s).replace(/(https?:\/\/\S+)/g, '<a href="$1">$1</a>');
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const link = (s: string) => esc(s).replace(/(https?:\/\/[^\s"'<>&]+)/g, (m) => {
+    const trail = m.endsWith(".") ? "." : "";
+    const url = trail ? m.slice(0, -1) : m;
+    return `<a href="${url}">${url}</a>${trail}`;
+  });
   const verdictClass = (b: string) => (/\. Exposed\./.test(b) ? "exposed" : /\. Partial\./.test(b) ? "partial" : /\. Unknown\./.test(b) ? "unknown" : "closed");
   const body = secs.map((s, i) => `<section><h2><span class="n">${i + 1}</span>${esc(s.title)}</h2>${s.title === TITLES[2] ? `<ul>${s.body.map((b) => `<li class="${verdictClass(b)}">${link(b)}</li>`).join("")}</ul>` : s.body.map((b) => `<p>${link(b)}</p>`).join("")}</section>`).join("");
   const notes = r.notes.length ? `<section class="notes"><h2>Notes you gave, echoed and never scored</h2><ul>${notesBlock(r).map((b) => `<li>${esc(b)}</li>`).join("")}</ul></section>` : "";
