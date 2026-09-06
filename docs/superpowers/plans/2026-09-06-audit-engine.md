@@ -613,7 +613,7 @@ export function score(intake: Intake): Readout {
   const unknowns = DIMENSIONS.filter((d) => verdicts[d] === "Unknown").length;
   const closed = (ds: Dimension[]) => ds.every((d) => verdicts[d] === "Closed");
   let posture: string;
-  if (closed(DIMENSIONS.slice(0, 7))) posture = "enforcement-grade";
+  if (closed([...DIMENSIONS])) posture = "enforcement-grade";
   else if (closed(DIMENSIONS.slice(0, 4))) posture = `enforcement-grade except ${DIMENSIONS.slice(4).filter((d) => verdicts[d] !== "Closed").map((d) => DIMENSION_LABEL[d].toLowerCase()).join(", ")}`;
   else if (unknowns >= 4) posture = "mostly unknown";
   else if (intake.execution?.who === "agent-calls-rail" && capOf(intake.limits)) posture = `advisory with caps, forgery ${forgery} and misdirection ${misdirection}`;
@@ -633,7 +633,7 @@ export function score(intake: Intake): Readout {
   const shortestPath = STEPS
     .map((s) => ({ s, gain: s.closes.filter((d) => open.has(d)).length }))
     .filter((x) => x.gain > 0)
-    .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || a.s.effort - b.s.effort)
+    .sort((a, b) => b.gain / b.s.effort - a.gain / a.s.effort || b.gain - a.gain)
     .slice(0, 4)
     .map((x) => ({ step: x.s.step, kind: x.s.kind }));
   while (shortestPath.length < 2 && shortestPath.length < STEPS.length) {
