@@ -160,8 +160,8 @@ export function score(intake: Intake): Readout {
   const forgery = openness(verdicts, ["single-path", "custody", "mediated-execution"], (d) => verdicts[d] === "Exposed");
   const misdirection = openness(verdicts, ["intent-binding", "human-approval"], (d) =>
     (d === "intent-binding" && verdicts[d] === "Exposed") || (d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "in-band"),
-    (d) => d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "none");
-  const approvalNoneOpen = intake.approval?.mode === "none" && verdicts["human-approval"] === "Exposed";
+    (d) => d === "human-approval" && verdicts[d] === "Exposed" && intake.approval?.mode === "none" && verdicts["intent-binding"] === "Closed");
+  const approvalNoneOpen = intake.approval?.mode === "none" && verdicts["human-approval"] === "Exposed" && verdicts["intent-binding"] === "Closed";
 
   const unknowns = DIMENSIONS.filter((d) => verdicts[d] === "Unknown").length;
   const closed = (ds: Dimension[]) => ds.every((d) => verdicts[d] === "Closed");

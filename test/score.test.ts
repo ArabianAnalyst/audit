@@ -28,6 +28,40 @@ const enforcement: Intake = {
   drift: { changeFrequency: "daily", recheck: "at-deploy" },
 };
 
+const allUnknown: Intake = {};
+
+const noCapsVariant: Intake = { ...advisory, limits: { enforcedAt: "none", reservedAtGrant: false }, approval: { mode: "out-of-band" } };
+
+const enforcementGradeVariant: Intake = { ...enforcement, drift: { changeFrequency: "daily", recheck: "on-change" } };
+
+const noSplittingCorner: Intake = { limits: { reservedAtGrant: true, enforcedAt: "before-spend" } };
+
+const blastNoCapsIntake: Intake = { ...advisory, limits: { enforcedAt: "before-spend", reservedAtGrant: "unknown" }, approval: { mode: "in-band" } };
+
+const advisoryWithCapsWinsIntake: Intake = { execution: { who: "agent-calls-rail" }, limits: { perDay: { amount: 500, currency: "USD" }, enforcedAt: "at-settlement", reservedAtGrant: false } };
+
+const approvalNoneBoundGrants: Intake = { ...enforcement, approval: { mode: "none" } };
+
+const approvalNoneBindingUnknown: Intake = {
+  custody: { where: "separate-service" },
+  execution: { who: "intent-to-executor" },
+  reach: { tools: [], mcpServers: [], keysInRuntime: [], paymentPaths: 1 },
+  approval: { mode: "none" },
+};
+
+const ALL_INTAKES: Intake[] = [
+  advisory,
+  enforcement,
+  allUnknown,
+  noCapsVariant,
+  enforcementGradeVariant,
+  noSplittingCorner,
+  blastNoCapsIntake,
+  advisoryWithCapsWinsIntake,
+  approvalNoneBoundGrants,
+  approvalNoneBindingUnknown,
+];
+
 test("money formats with a symbol for the three common currencies and a code otherwise", () => {
   assert.equal(formatMoney({ amount: 50, currency: "USD" }), "$50.00");
   assert.equal(formatMoney({ amount: 12.5, currency: "GBP" }), "£12.50");
@@ -68,7 +102,7 @@ test("enforcement-grade except continuous verification", () => {
 });
 
 test("an enforcement-grade setup gets no steps and an honest last line", () => {
-  const r = score({ ...enforcement, drift: { changeFrequency: "daily", recheck: "on-change" } });
+  const r = score(enforcementGradeVariant);
   assert.equal(r.posture, "enforcement-grade");
   assert.equal(r.shortestPath.length, 0);
   assert.equal(r.topBreaches.length, 0);
@@ -76,7 +110,7 @@ test("an enforcement-grade setup gets no steps and an honest last line", () => {
 });
 
 test("everything unknown: eight Unknowns, each with its question, no breaches", () => {
-  const r = score({});
+  const r = score(allUnknown);
   assert.equal(r.posture, "mostly unknown");
   assert.ok(r.exposure.every((e) => e.verdict === "Unknown" && typeof e.question === "string" && e.question.length > 10));
   assert.deepEqual([r.open.forgery, r.open.misdirection], ["unknown", "unknown"]);
@@ -88,33 +122,38 @@ test("everything unknown: eight Unknowns, each with its question, no breaches", 
 });
 
 test("advisory with caps wins over mostly unknown", () => {
-  const r = score({ execution: { who: "agent-calls-rail" }, limits: { perDay: { amount: 500, currency: "USD" }, enforcedAt: "at-settlement", reservedAtGrant: false } });
+  const r = score(advisoryWithCapsWinsIntake);
   assert.match(r.posture, /^advisory with caps/);
 });
 
 test("no cap at all reads as unbounded; a partial approval reads as Partial", () => {
-  const r = score({ ...advisory, limits: { enforcedAt: "none", reservedAtGrant: false }, approval: { mode: "out-of-band" } });
+  const r = score(noCapsVariant);
   assert.match(r.topBreaches[0]!.blastRadius, /unbounded/);
   assert.equal(r.exposure.find((e) => e.dimension === "human-approval")!.verdict, "Partial");
 });
 
 test("no-splitting reads partial when budget is reserved but no cap exists", () => {
-  const r = score({ limits: { reservedAtGrant: true, enforcedAt: "before-spend" } });
+  const r = score(noSplittingCorner);
   const e = r.exposure.find((e) => e.dimension === "no-splitting")!;
   assert.equal(e.verdict, "Partial");
   assert.equal(e.finding, "Budget is reserved at approval, but no cap is described.");
 });
 
 test("blast sentences with no caps say unbounded", () => {
-  const intake: Intake = { ...advisory, limits: { enforcedAt: "before-spend", reservedAtGrant: "unknown" }, approval: { mode: "in-band" } };
-  assert.match(blastRadius("intent-binding", intake), /unbounded|\$[0-9]/);
-  assert.match(blastRadius("no-splitting", intake), /unbounded|\$[0-9]/);
-  assert.match(blastRadius("human-approval", intake), /unbounded|\$[0-9]/);
+  assert.match(blastRadius("intent-binding", blastNoCapsIntake), /unbounded|\$[0-9]/);
+  assert.match(blastRadius("no-splitting", blastNoCapsIntake), /unbounded|\$[0-9]/);
+  assert.match(blastRadius("human-approval", blastNoCapsIntake), /unbounded|\$[0-9]/);
 });
 
 test("approval none with bound grants reads misdirection partial", () => {
-  const r = score({ ...enforcement, approval: { mode: "none" } });
+  const r = score(approvalNoneBoundGrants);
   assert.equal(r.open.misdirection, "partial");
+});
+
+test("approval none with binding unknown stays unknown", () => {
+  const r = score(approvalNoneBindingUnknown);
+  assert.equal(r.open.misdirection, "unknown");
+  assert.ok(!r.open.why.includes("Binding holds"));
 });
 
 test("score is pure and notes are echoed, never scored", () => {
@@ -126,7 +165,7 @@ test("score is pure and notes are echoed, never scored", () => {
 });
 
 test("generated prose has no colon or em dash outside URLs", () => {
-  for (const intake of [advisory, enforcement, {}]) {
+  for (const intake of ALL_INTAKES) {
     const r = score(intake);
     const prose = [r.posture, ...r.exposure.map((e) => e.finding + " " + (e.question ?? "")), ...r.topBreaches.map((b) => b.blastRadius + " " + b.fix), r.open.why, ...r.shortestPath.map((s) => s.step), r.lastLine.replace(/https?:\/\/\S+/g, "")].join("\n");
     assert.ok(!/—/.test(prose), "em dash");
