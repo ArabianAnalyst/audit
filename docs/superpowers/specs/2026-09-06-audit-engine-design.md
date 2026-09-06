@@ -30,14 +30,14 @@ CLI `npx @olurabian/audit`: interactive questions in the terminal (`node:readlin
 
 ## Intake
 
-Nine structured fields. The prompt asks eight questions and scores eight dimensions, but intent-binding is scored without being asked, so it gets its own field. Every field carries an optional `notes` string that is echoed in the report and never scored. A field left out scores Unknown.
+Nine structured fields. The prompt asks eight questions and scores eight dimensions, but intent-binding is scored without being asked, so it gets its own field. Every field carries an optional `notes` string that is echoed in the report and never scored. A field left out scores Unknown. `score` normalises a hand-edited intake first: a section that is not an object is absent, a string where a list belongs is a one-item list, a numeric string is a number, money at zero or below is absent, a bad boolean is unknown, and a list left unknown is `"unknown"` (keys unknown with mediated execution makes single path Partial with the reach question).
 
 ```ts
 type Money = { amount: number; currency: string };   // major units, e.g. 50 USD
 
 interface Intake {
-  spend?:     { what: string[]; frequency: "rare" | "daily" | "continuous" | "unknown"; typical?: Money; notes?: string };
-  reach?:     { tools: string[]; mcpServers: string[]; keysInRuntime: string[]; paymentPaths: number | "unknown"; notes?: string };
+  spend?:     { what: string[] | "unknown"; frequency: "rare" | "daily" | "continuous" | "unknown"; typical?: Money; notes?: string };
+  reach?:     { tools: string[] | "unknown"; mcpServers: string[] | "unknown"; keysInRuntime: string[] | "unknown"; paymentPaths: number | "unknown"; notes?: string };
   custody?:   { where: "agent-runtime" | "separate-service" | "unknown"; notes?: string };
   execution?: { who: "agent-calls-rail" | "intent-to-executor" | "unknown"; notes?: string };
   binding?:   { mode: "bound-payee-and-amount" | "any-in-policy" | "unknown"; notes?: string };
@@ -58,7 +58,7 @@ Verdicts are `Closed`, `Partial`, `Exposed`, `Unknown`. Rules, one dimension at 
 2. **Custody.** Closed `separate-service`. Exposed `agent-runtime`. Unknown otherwise.
 3. **Mediated execution.** Closed `intent-to-executor`. Exposed `agent-calls-rail`. Unknown otherwise.
 4. **Intent-binding.** Closed `bound-payee-and-amount`. Exposed `any-in-policy`. Unknown otherwise.
-5. **No splitting.** Closed when `reservedAtGrant` is true and a cap exists. Exposed when `enforcedAt` is `none`, or `at-settlement`, or `reservedAtGrant` is false. Partial when `enforcedAt` is `before-spend` and `reservedAtGrant` is unknown. Unknown otherwise.
+5. **No splitting.** Closed when `reservedAtGrant` is true and a cap exists. Exposed when `enforcedAt` is `none`, or `at-settlement`, or `reservedAtGrant` is false. Partial when `enforcedAt` is `before-spend` and `reservedAtGrant` is unknown, and Partial when `before-spend` and `reservedAtGrant` is true with no cap (a reservation with nothing to reserve against). Unknown otherwise. Exposed is checked before Closed and Partial.
 6. **Human approval.** Closed when `out-of-band` with a threshold. Partial when `out-of-band` without a threshold. Exposed when `in-band` or `none`. Unknown otherwise.
 7. **Provable audit.** Closed when `exists`, `tamperEvident`, and `settledAmountRecorded` are all true. Exposed when `exists` is false, or `tamperEvident` is false, or `settledAmountRecorded` is false. Partial when `exists` is true and either of the others is unknown. Unknown when `exists` is unknown.
 8. **Continuous verification.** Closed `on-change`. Partial `at-deploy`. Exposed `never`. Unknown otherwise.
@@ -67,7 +67,7 @@ Each Unknown carries the exact intake question to ask, in the prompt's words.
 
 **Framings.** Forgery is open when any of dimensions 1, 2, 3 is Exposed; partially open when any is Partial and none Exposed; closed when all three Closed; unknown otherwise. Misdirection is open when dimension 4 is Exposed or dimension 6 is Exposed with mode `in-band`; partially open when 4 or 6 is Partial, or when 6 is Exposed with mode `none` (large spends auto-execute against bound grants); closed when both Closed; unknown otherwise.
 
-**Blast radius.** Every Exposed or Partial dimension gets one sentence in money, built from the intake's own numbers. With no cap at all the sentence says unbounded, up to the balance behind the credential, and any template slot whose cap or threshold is absent reads "unbounded" rather than a vague phrase. Templates, rendered without colons or em dashes:
+**Blast radius.** Every Exposed dimension listed under top breaches gets one sentence in money, built from the intake's own numbers. With no cap at all the sentence says unbounded, up to the balance behind the credential, and any template slot whose cap or threshold is absent reads "unbounded" rather than a vague phrase. Templates, rendered without colons or em dashes:
 
 - Single path, custody, mediated execution. "One poisoned tool result pays any address, up to {cap} with nothing between the agent and the rail."
 - Intent-binding. "A compromised agent hands you a perfectly in-policy request that is not what you meant, {perAction} per spend and {perDay} per day."
@@ -76,7 +76,7 @@ Each Unknown carries the exact intake question to ask, in the prompt's words.
 - Provable audit. "After an incident you cannot prove what moved. The log can be edited and the settled amount is not in it."
 - Continuous verification. "A new tool or dependency can reopen a money path with no one noticing until money moves."
 
-**Posture line.** `enforcement-grade` when all eight dimensions are Closed. `enforcement-grade except {names}` when 1 to 4 are Closed and something else is not. `advisory with caps` when execution is `agent-calls-rail` and a cap exists. `no controls` when nothing is Closed and nothing is Unknown. `mostly unknown` when four or more are Unknown. Otherwise `partial controls, {open framing} open`.
+**Posture line.** `enforcement-grade` when all eight dimensions are Closed. `enforcement-grade except {names}` when 1 to 4 are Closed, none of 5 to 8 is Unknown, and something else is not. `advisory with caps` when execution is `agent-calls-rail` and a cap exists. `no controls` when nothing is Closed and nothing is Unknown. `mostly unknown` when four or more are Unknown. Otherwise `partial controls, {open framing} open`.
 
 **Money-path map.** One line per path. Each entry in `reach.keysInRuntime` is "agent to rail via {key}, unmediated". `execution.who` `intent-to-executor` adds "agent to executor to rail, mediated". `agent-calls-rail` adds "agent to rail, unmediated". Unknown execution adds "unknown, execution not described".
 
@@ -95,7 +95,7 @@ interface Readout {
   open: { forgery: "open" | "partial" | "closed" | "unknown"; misdirection: "open" | "partial" | "closed" | "unknown"; why: string };
   shortestPath: { step: string; kind: "governance-layer" | "hosted-control-plane" | "hands-on" | "practice" }[];
   lastLine: string;
-  notes: { dimension: Dimension; text: string }[];   // echoed, never scored
+  notes: { dimension: Dimension | "spend"; text: string }[];   // echoed, never scored
 }
 ```
 
