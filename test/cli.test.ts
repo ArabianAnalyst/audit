@@ -28,3 +28,12 @@ test("--intake with --json prints the readout, --out writes both files", () => {
 test("a bad intake file is a clear error", () => {
   assert.throws(() => execFileSync(process.execPath, [CLI, "--intake", "/nope/none.json"], { encoding: "utf8", stdio: "pipe" }), /cannot read intake/);
 });
+
+test("an intake file that is not a JSON object is the same clear error", () => {
+  const dir = mkdtempSync(join(tmpdir(), "audit-"));
+  for (const body of ["[]", "null", "\"x\"", "42"]) {
+    const file = join(dir, "bad.json");
+    writeFileSync(file, body);
+    assert.throws(() => execFileSync(process.execPath, [CLI, "--intake", file], { encoding: "utf8", stdio: "pipe" }), /cannot read intake/, body);
+  }
+});

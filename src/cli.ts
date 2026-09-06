@@ -82,7 +82,11 @@ async function main(): Promise<void> {
   let intake: Intake;
   const file = flag("--intake");
   if (file) {
-    try { intake = JSON.parse(readFileSync(file, "utf8")) as Intake; }
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("expected a JSON object with the intake fields");
+      intake = parsed as Intake;
+    }
     catch (e) { process.stderr.write(`audit: cannot read intake ${file} (${(e as Error).message})\n`); process.exit(1); }
   } else {
     if (!stdin.isTTY) { process.stderr.write("audit: no --intake given and no terminal to ask in; try --example\n"); process.exit(1); }
