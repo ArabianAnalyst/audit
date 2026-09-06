@@ -1,0 +1,61 @@
+{
+  "name": "@olurabian/audit",
+  "version": "0.1.0",
+  "description": "The Agent Payment Security Audit as a runnable. Can a compromised agent move money outside policy? Eight dimensions, honest Unknowns, blast radius in your own numbers.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "audit": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "prompts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "test": "tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai-agents",
+    "payments",
+    "security",
+    "audit",
+    "agent-security",
+    "deadlatch",
+    "purse"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArabianAnalyst/audit.git"
+  },
+  "homepage": "https://github.com/ArabianAnalyst/audit#readme",
+  "bugs": {
+    "url": "https://github.com/ArabianAnalyst/audit/issues"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@lavamoat/allow-scripts": "^5.1.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "tsx>esbuild#0.28.2": true
+    }
+  }
+}
