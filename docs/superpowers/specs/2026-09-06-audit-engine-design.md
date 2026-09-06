@@ -65,9 +65,9 @@ Verdicts are `Closed`, `Partial`, `Exposed`, `Unknown`. Rules, one dimension at 
 
 Each Unknown carries the exact intake question to ask, in the prompt's words.
 
-**Framings.** Forgery is open when any of dimensions 1, 2, 3 is Exposed; partially open when any is Partial and none Exposed; closed when all three Closed; unknown otherwise. Misdirection is open when dimension 4 is Exposed or dimension 6 is Exposed with mode `in-band`; partially open when 4 or 6 is Partial; closed when both Closed; unknown otherwise.
+**Framings.** Forgery is open when any of dimensions 1, 2, 3 is Exposed; partially open when any is Partial and none Exposed; closed when all three Closed; unknown otherwise. Misdirection is open when dimension 4 is Exposed or dimension 6 is Exposed with mode `in-band`; partially open when 4 or 6 is Partial, or when 6 is Exposed with mode `none` (large spends auto-execute against bound grants); closed when both Closed; unknown otherwise.
 
-**Blast radius.** Every Exposed or Partial dimension gets one sentence in money, built from the intake's own numbers. With no cap at all the sentence says unbounded, up to the balance behind the credential. Templates, rendered without colons or em dashes:
+**Blast radius.** Every Exposed or Partial dimension gets one sentence in money, built from the intake's own numbers. With no cap at all the sentence says unbounded, up to the balance behind the credential, and any template slot whose cap or threshold is absent reads "unbounded" rather than a vague phrase. Templates, rendered without colons or em dashes:
 
 - Single path, custody, mediated execution. "One poisoned tool result pays any address, up to {cap} with nothing between the agent and the rail."
 - Intent-binding. "A compromised agent hands you a perfectly in-policy request that is not what you meant, {perAction} per spend and {perDay} per day."
@@ -82,7 +82,7 @@ Each Unknown carries the exact intake question to ask, in the prompt's words.
 
 **Top breaches.** Exposed dimensions in the fixed severity order 1, 2, 3, 4, 6, 5, 7, 8, at most three, each with its blast-radius sentence and a one-line fix.
 
-**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more, two to four steps. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/work".
+**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more. Only steps that close an open dimension appear, one to four of them, and a setup with nothing open gets no steps and a last line that says so. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/work".
 
 ## Readout
 
