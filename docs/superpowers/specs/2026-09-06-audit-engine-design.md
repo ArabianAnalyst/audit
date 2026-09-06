@@ -99,7 +99,7 @@ interface Readout {
 }
 ```
 
-`render` produces the six sections in the prompt's order and nothing else, in three formats. Text for the terminal. Markdown for a file or a paste. HTML as one self-contained file with inline styles, light and dark by `prefers-color-scheme`, a system font stack, no external requests. Generated prose contains no colons and no em dashes; the tests sweep for both.
+`render` produces the six sections in the prompt's order and nothing else, then the echoed notes when there are any, in three formats. Text for the terminal. Markdown for a file or a paste. HTML as one self-contained file with inline styles, light and dark by `prefers-color-scheme`, a system font stack, no external requests. Generated prose contains no colons and no em dashes; the tests sweep for both.
 
 ## Web
 
