@@ -187,7 +187,7 @@ test("advisory with caps: forgery and misdirection open, blast radius in their n
   assert.ok(r.shortestPath.length >= 2 && r.shortestPath.length <= 6);
   assert.equal(r.shortestPath.length, 5);
   assert.equal(r.shortestPath[0]!.kind, "governance-layer");
-  assert.match(r.lastLine, /https:\/\/olurabian\.com\/work/);
+  assert.match(r.lastLine, /https:\/\/olurabian\.com\/deadlatch/);
   assert.ok(r.exposure.every((e) => e.question === undefined));
 });
 

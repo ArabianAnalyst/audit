@@ -50,10 +50,10 @@ test("a crafted intake value cannot break out of the html", () => {
   assert.ok(!/<[^>]*onmouseover/.test(html), "onmouseover must not land inside a tag");
   assert.ok(html.includes("&lt;script&gt;"), "script tag text is escaped");
   assert.ok(!/<script/.test(html), "no literal script tag");
-  assert.match(html, /<a href="https:\/\/olurabian\.com\/work">/, "the real link still works");
+  assert.match(html, /<a href="https:\/\/olurabian\.com\/deadlatch">/, "the real link still works");
 
   const r = score(exampleIntake());
-  const withTrailingPeriod = { ...r, lastLine: `${r.lastLine.replace(/https:\/\/olurabian\.com\/work\.?$/, "").trimEnd()} https://olurabian.com/deadlatch.` };
+  const withTrailingPeriod = { ...r, lastLine: `${r.lastLine.replace(/https:\/\/olurabian\.com\/deadlatch\.?$/, "").trimEnd()} https://olurabian.com/deadlatch.` };
   const html2 = render(withTrailingPeriod, "html");
   assert.ok(html2.includes('href="https://olurabian.com/deadlatch">https://olurabian.com/deadlatch</a>.'), "trailing period sits outside the anchor");
 });
