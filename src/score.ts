@@ -345,6 +345,13 @@ function openness(verdicts: Record<Dimension, Verdict>, dims: Dimension[], expos
   return "unknown";
 }
 
+/** "a", "a and b", "a, b, and c". Three clauses need the commas to read. */
+function joinAnd(parts: string[]): string {
+  if (parts.length <= 1) return parts.join("");
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+}
+
 function cap1(s: string): string {
   return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
@@ -409,8 +416,8 @@ export function score(rawIntake: Intake): Readout {
   if (intake.approval?.mode === "in-band") misdirectionClauses.push("the agent approves its own requests");
   if (approvalNoneBound) misdirectionClauses.push("large spends execute against bound grants without a person");
 
-  const forgerySentence = forgeryClauses.length ? `${cap1(forgeryClauses.join(" and "))}, so a poisoned instruction can forge a spend.` : undefined;
-  const misdirectionSentence = misdirectionClauses.length ? `${cap1(misdirectionClauses.join(" and "))}, so the agent can misdirect a spend it is allowed to request.` : undefined;
+  const forgerySentence = forgeryClauses.length ? `${cap1(joinAnd(forgeryClauses))}, so a poisoned instruction can forge a spend.` : undefined;
+  const misdirectionSentence = misdirectionClauses.length ? `${cap1(joinAnd(misdirectionClauses))}, so the agent can misdirect a spend it is allowed to request.` : undefined;
 
   let why: string;
   if (forgerySentence && misdirectionSentence) why = `${forgerySentence} ${misdirectionSentence}`;
@@ -421,8 +428,8 @@ export function score(rawIntake: Intake): Readout {
   else why = "Custody stops forgery and binding stops misdirection.";
 
   const lastLine = shortestPath.length > 0
-    ? `Start with the first step. If you want this done for you, https://olurabian.com/work`
-    : `Nothing to close from what was described. If you want it verified hands-on, https://olurabian.com/work`;
+    ? `Start with the first step. If you want this done for you, https://olurabian.com/deadlatch`
+    : `Nothing to close from what was described. If you want it verified hands-on, https://olurabian.com/deadlatch`;
 
   const notes: Readout["notes"] = [];
   const noteOf = (dimension: Readout["notes"][number]["dimension"], text?: string) => { if (text?.trim()) notes.push({ dimension, text: text.trim() }); };

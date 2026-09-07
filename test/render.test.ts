@@ -16,7 +16,7 @@ test("all three formats carry the six sections in order and nothing else before 
     const body = f === "html" ? stripHtml(out) : out;
     let last = -1;
     for (const s of SECTIONS) { const i = body.indexOf(s); assert.ok(i > last, `${f} missing or misordered ${s}`); last = i; }
-    assert.ok(body.includes("olurabian.com/work"), f);
+    assert.ok(body.includes("olurabian.com/deadlatch"), f);
   }
 });
 
@@ -53,9 +53,9 @@ test("a crafted intake value cannot break out of the html", () => {
   assert.match(html, /<a href="https:\/\/olurabian\.com\/work">/, "the real link still works");
 
   const r = score(exampleIntake());
-  const withTrailingPeriod = { ...r, lastLine: `${r.lastLine.replace(/https:\/\/olurabian\.com\/work\.?$/, "").trimEnd()} https://olurabian.com/work.` };
+  const withTrailingPeriod = { ...r, lastLine: `${r.lastLine.replace(/https:\/\/olurabian\.com\/work\.?$/, "").trimEnd()} https://olurabian.com/deadlatch.` };
   const html2 = render(withTrailingPeriod, "html");
-  assert.ok(html2.includes('href="https://olurabian.com/work">https://olurabian.com/work</a>.'), "trailing period sits outside the anchor");
+  assert.ok(html2.includes('href="https://olurabian.com/deadlatch">https://olurabian.com/deadlatch</a>.'), "trailing period sits outside the anchor");
 });
 
 test("D1: a money-path line does not double the mediated flag", () => {
@@ -67,9 +67,9 @@ test("D1: a money-path line does not double the mediated flag", () => {
 
 test("D2: a URL followed by a comma keeps the comma outside the anchor", () => {
   const r = score(exampleIntake());
-  const withComma = { ...r, lastLine: "See https://olurabian.com/work, for more." };
+  const withComma = { ...r, lastLine: "See https://olurabian.com/deadlatch, for more." };
   const html = render(withComma, "html");
-  assert.ok(html.includes('href="https://olurabian.com/work">https://olurabian.com/work</a>,'), "comma sits outside the anchor");
+  assert.ok(html.includes('href="https://olurabian.com/deadlatch">https://olurabian.com/deadlatch</a>,'), "comma sits outside the anchor");
 });
 
 test("D3: an unknown format throws", () => {

@@ -4,7 +4,7 @@
 
 Turn the eight-dimension diagnostic that lives as a prompt in the Purse repo into something a team can run without a model: a deterministic scoring engine, a CLI, and a page on deadlatch.dev where the form and the engine run in the browser. Phase 0 of the Deadlatch roadmap, item "Productise the Agent Payment Security Audit". Free to run, paid to fix.
 
-Decisions taken by ARABA on 2026-09-06: **deterministic engine with a CLI and a web page** (evidence collectors and live probes later); **contact line, no capture** (the readout ends with the first step of the shortest path and one sentence offering to do it, linking to https://olurabian.com/work).
+Decisions taken by ARABA on 2026-09-06: **deterministic engine with a CLI and a web page** (evidence collectors and live probes later); **contact line, no capture** (the readout ends with the first step of the shortest path and one sentence offering to do it, linking to https://olurabian.com/deadlatch).
 
 The prompt is the source of truth for the dimensions, the four verdicts, the two framings, the six-section readout, and the voice. The engine must produce the same readout a careful model would, minus the guessing.
 
@@ -82,7 +82,7 @@ Each Unknown carries the exact intake question to ask, in the prompt's words.
 
 **Top breaches.** Exposed dimensions in the fixed severity order 1, 2, 3, 4, 6, 5, 7, 8, at most three, each with its blast-radius sentence and a one-line fix.
 
-**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more. Only steps that close an open dimension appear, as many as it takes to close every open dimension and at most six, and a setup with nothing open gets no steps and a last line that says so. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/work".
+**Shortest path.** From a fixed table keyed by the open dimensions, each step with an effort weight and the set of dimensions it closes, ordered by dimensions closed per unit of effort, ties broken toward the step that closes more. Only steps that close an open dimension appear, as many as it takes to close every open dimension and at most six, and a setup with nothing open gets no steps and a last line that says so. Each step names its kind plainly: a payment-governance layer, a hosted control plane, or hands-on implementation. The final line is the first step and then one sentence, "If you want this done for you, https://olurabian.com/deadlatch".
 
 ## Readout
 
