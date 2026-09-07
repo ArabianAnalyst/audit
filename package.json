@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "audit": "./dist/cli.js"
+    "audit": "dist/cli.js"
   },
   "publishConfig": {
     "access": "public"
